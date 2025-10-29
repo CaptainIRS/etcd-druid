@@ -120,7 +120,7 @@ func TestSyncWhenNoSTSExists(t *testing.T) {
 			name:     "creates sts with 0 replicas, with no serviceAccount and service defined, with lease renewal and client-service-endpoint CLI flags disabled on backup-restore container when runtime component creation is disabled",
 			replicas: 3,
 			annotations: map[string]string{
-				druidv1alpha1.DisableEtcdRuntimeComponentCreationAnnotation: "",
+				druidv1alpha1.ExternallyManagedPodsAnnotation: "",
 			},
 			expectedReplicas:       ptr.To[int32](0),
 			expectNoServiceAccount: true,

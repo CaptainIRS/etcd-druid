@@ -93,8 +93,8 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 	}
 
 	if isRuntimeComponent(requestGK) {
-		if !druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(etcd.ObjectMeta) {
-			return admission.Allowed(fmt.Sprintf("Etcd %s has runtime component creation disabled, skipping validations for resource %v", etcd.Name, utils.CreateObjectKey(partialObjMeta)))
+		if !druidv1alpha1.IsPodManagementEnabled(etcd.ObjectMeta) {
+			return admission.Allowed(fmt.Sprintf("Etcd %s has pod management disabled, skipping validations for resource %v", etcd.Name, utils.CreateObjectKey(partialObjMeta)))
 		}
 	}
 
@@ -179,7 +179,6 @@ func isRuntimeComponent(requestGK schema.GroupKind) bool {
 	return requestGK == corev1.SchemeGroupVersion.WithKind("ServiceAccount").GroupKind() ||
 		requestGK == rbacv1.SchemeGroupVersion.WithKind("Role").GroupKind() ||
 		requestGK == rbacv1.SchemeGroupVersion.WithKind("RoleBinding").GroupKind() ||
-		requestGK == coordinationv1.SchemeGroupVersion.WithKind("Lease").GroupKind() ||
 		requestGK == policyv1.SchemeGroupVersion.WithKind("PodDisruptionBudget").GroupKind() ||
 		requestGK == corev1.SchemeGroupVersion.WithKind("Service").GroupKind()
 }

@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,6 +48,16 @@ func GetOrdinalPodName(etcdObjMeta metav1.ObjectMeta, ordinal int) string {
 // GetAllPodNames returns the names of all pods for the Etcd.
 func GetAllPodNames(etcdObjMeta metav1.ObjectMeta, replicas int32) []string {
 	podNames := make([]string, replicas)
+	if !IsPodManagementEnabled(etcdObjMeta) {
+		externallyManagedPodIPs := ExternallyManagedPodIPs(etcdObjMeta)
+		if len(externallyManagedPodIPs) != int(replicas) {
+			return podNames
+		}
+		for i, ip := range externallyManagedPodIPs {
+			podNames[i] = fmt.Sprintf("%s-%s", etcdObjMeta.Name, ip)
+		}
+		return podNames
+	}
 	for i := range int(replicas) {
 		podNames[i] = GetOrdinalPodName(etcdObjMeta, i)
 	}
@@ -56,6 +67,16 @@ func GetAllPodNames(etcdObjMeta metav1.ObjectMeta, replicas int32) []string {
 // GetMemberLeaseNames returns the name of member leases for the Etcd.
 func GetMemberLeaseNames(etcdObjMeta metav1.ObjectMeta, replicas int32) []string {
 	leaseNames := make([]string, replicas)
+	if !IsPodManagementEnabled(etcdObjMeta) {
+		externallyManagedPodIPs := ExternallyManagedPodIPs(etcdObjMeta)
+		if len(externallyManagedPodIPs) != int(replicas) {
+			return leaseNames
+		}
+		for i, ip := range externallyManagedPodIPs {
+			leaseNames[i] = fmt.Sprintf("%s-%s", etcdObjMeta.Name, ip)
+		}
+		return leaseNames
+	}
 	for i := range int(replicas) {
 		leaseNames[i] = fmt.Sprintf("%s-%d", etcdObjMeta.Name, i)
 	}
@@ -166,7 +187,23 @@ func RemoveOperationAnnotation(etcdObjMeta metav1.ObjectMeta) {
 	delete(etcdObjMeta.Annotations, GardenerOperationAnnotation)
 }
 
-// IsEtcdRuntimeComponentCreationEnabled checks if the creation of runtime components is enabled for an Etcd resource.
-func IsEtcdRuntimeComponentCreationEnabled(etcdObjMeta metav1.ObjectMeta) bool {
-	return !metav1.HasAnnotation(etcdObjMeta, DisableEtcdRuntimeComponentCreationAnnotation)
+// IsPodManagementEnabled checks if the creation of runtime components is enabled for an Etcd resource.
+func IsPodManagementEnabled(etcdObjMeta metav1.ObjectMeta) bool {
+	return !metav1.HasAnnotation(etcdObjMeta, ExternallyManagedPodsAnnotation)
+}
+
+// ExternallyManagedPodIPs returns the list of externally managed pod IPs from the annotation on the Etcd resource.
+func ExternallyManagedPodIPs(etcdObjMeta metav1.ObjectMeta) []string {
+	annotationValue, exists := etcdObjMeta.Annotations[ExternallyManagedPodIPsAnnotation]
+	if !exists || annotationValue == "" {
+		return nil
+	}
+	var podIPs []string
+	for ip := range strings.SplitSeq(annotationValue, ",") {
+		trimmedIP := strings.TrimSpace(ip)
+		if trimmedIP != "" {
+			podIPs = append(podIPs, trimmedIP)
+		}
+	}
+	return podIPs
 }

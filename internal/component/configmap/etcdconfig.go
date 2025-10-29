@@ -115,6 +115,15 @@ func getSchemeAndSecurityConfig(tlsConfig *druidv1alpha1.TLSConfig, caPath, serv
 }
 
 func prepareInitialCluster(etcd *druidv1alpha1.Etcd, peerScheme string) string {
+	if !druidv1alpha1.IsPodManagementEnabled(etcd.ObjectMeta) && len(druidv1alpha1.ExternallyManagedPodIPs(etcd.ObjectMeta)) == int(etcd.Spec.Replicas) {
+		// When pod management is disabled and all pod IPs are provided via annotation, use those IPs to form initial cluster string
+		builder := strings.Builder{}
+		for _, ip := range druidv1alpha1.ExternallyManagedPodIPs(etcd.ObjectMeta) {
+			builder.WriteString(fmt.Sprintf("%s-%s=%s://%s:%d,", etcd.Name, ip, peerScheme, ip, ptr.Deref(etcd.Spec.Etcd.ServerPort, common.DefaultPortEtcdPeer)))
+		}
+		return strings.Trim(builder.String(), ",")
+	}
+
 	domainName := fmt.Sprintf("%s.%s.%s", druidv1alpha1.GetPeerServiceName(etcd.ObjectMeta), etcd.Namespace, "svc")
 	serverPort := strconv.Itoa(int(ptr.Deref(etcd.Spec.Etcd.ServerPort, common.DefaultPortEtcdPeer)))
 	builder := strings.Builder{}
@@ -136,6 +145,14 @@ func getAdvertiseURLs(etcd *druidv1alpha1.Etcd, advertiseURLType, scheme, peerSv
 		return nil
 	}
 	advUrlsMap := make(map[string][]string)
+	if !druidv1alpha1.IsPodManagementEnabled(etcd.ObjectMeta) && len(druidv1alpha1.ExternallyManagedPodIPs(etcd.ObjectMeta)) == int(etcd.Spec.Replicas) {
+		// When pod management is disabled and all pod IPs are provided via annotation, use those IPs to form advertise URLs
+		for _, ip := range druidv1alpha1.ExternallyManagedPodIPs(etcd.ObjectMeta) {
+			podName := fmt.Sprintf("%s-%s", etcd.Name, ip)
+			advUrlsMap[podName] = []string{fmt.Sprintf("%s://%s:%d", scheme, ip, port)}
+		}
+		return advUrlsMap
+	}
 	for i := range int(etcd.Spec.Replicas) {
 		podName := druidv1alpha1.GetOrdinalPodName(etcd.ObjectMeta, i)
 		advUrlsMap[podName] = []string{fmt.Sprintf("%s://%s.%s.%s.svc:%d", scheme, podName, peerSvcName, etcd.Namespace, port)}

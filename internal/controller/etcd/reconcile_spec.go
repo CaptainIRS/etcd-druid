@@ -205,13 +205,8 @@ func (r *Reconciler) getOrderedOperatorsForPreSync() []component.Kind {
 func (r *Reconciler) getOrderedOperatorsForSync(etcdObjMeta metav1.ObjectMeta) []component.Kind {
 	var operators []component.Kind
 
-	if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(etcdObjMeta) {
+	if druidv1alpha1.IsPodManagementEnabled(etcdObjMeta) {
 		operators = []component.Kind{
-			component.ServiceAccountKind,
-			component.RoleKind,
-			component.RoleBindingKind,
-			component.MemberLeaseKind,
-			component.SnapshotLeaseKind,
 			component.PodDisruptionBudgetKind,
 			component.ClientServiceKind,
 			component.PeerServiceKind,
@@ -220,6 +215,11 @@ func (r *Reconciler) getOrderedOperatorsForSync(etcdObjMeta metav1.ObjectMeta) [
 
 	// add the rest of the operators that are always needed for the etcd cluster
 	operators = append(operators,
+		component.RoleKind,
+		component.RoleBindingKind,
+		component.ServiceAccountKind,
+		component.MemberLeaseKind,
+		component.SnapshotLeaseKind,
 		component.ConfigMapKind,
 		component.StatefulSetKind,
 	)
@@ -228,15 +228,16 @@ func (r *Reconciler) getOrderedOperatorsForSync(etcdObjMeta metav1.ObjectMeta) [
 }
 
 func (r *Reconciler) getOperatorsForCleanup(etcdObjMeta metav1.ObjectMeta) []component.Kind {
-	if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(etcdObjMeta) {
-		return nil
+	if druidv1alpha1.IsPodManagementEnabled(etcdObjMeta) {
+		return []component.Kind{
+			component.ServiceAccountKind,
+			component.RoleKind,
+			component.RoleBindingKind,
+			component.MemberLeaseKind,
+			component.SnapshotLeaseKind,
+		}
 	}
 	return []component.Kind{
-		component.ServiceAccountKind,
-		component.RoleKind,
-		component.RoleBindingKind,
-		component.MemberLeaseKind,
-		component.SnapshotLeaseKind,
 		component.PodDisruptionBudgetKind,
 		component.ClientServiceKind,
 		component.PeerServiceKind,

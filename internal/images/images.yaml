@@ -7,8 +7,9 @@ images:
   resourceId:
     name: 'etcdbrctl'
   sourceRepository: github.com/gardener/etcd-backup-restore
-  repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcdbrctl
-  tag: "v0.39.0"
+  repository: localhost:5005/europe-docker.pkg.dev/gardener-project/snapshots/gardener/etcdbrctl
+  tag: "v0.40.0-dev"
 - name: alpine
   repository: europe-docker.pkg.dev/gardener-project/public/3rd/alpine
   tag: "3.21.3"
+

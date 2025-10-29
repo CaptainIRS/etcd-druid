@@ -157,7 +157,7 @@ func testNecessaryManagedResourcesAreCorrectlyCreatedWhenDisableEtcdRuntimeCompo
 		WithPeerTLS().
 		WithReplicas(3).
 		WithAnnotations(map[string]string{
-			druidv1alpha1.DisableEtcdRuntimeComponentCreationAnnotation: "",
+			druidv1alpha1.ExternallyManagedPodsAnnotation: "",
 		}).
 		Build()
 	g.Expect(etcdInstance.Spec.Backup.Store).ToNot(BeNil())
@@ -229,8 +229,8 @@ func testUnnecessaryManagedResourcesAreCleanedUpWhenDisableEtcdRuntimeComponentC
 	g.Expect(cl.Get(ctx, druidv1alpha1.GetNamespaceName(etcdInstance.ObjectMeta), etcdInstance)).To(Succeed())
 	// add `disable-etcd-runtime-component-creation` annotation and operation reconcile annotation to etcdInstance
 	etcdInstance.Annotations = map[string]string{
-		druidv1alpha1.DisableEtcdRuntimeComponentCreationAnnotation: "",
-		druidv1alpha1.DruidOperationAnnotation:                      druidv1alpha1.DruidOperationReconcile,
+		druidv1alpha1.ExternallyManagedPodsAnnotation: "",
+		druidv1alpha1.DruidOperationAnnotation:        druidv1alpha1.DruidOperationReconcile,
 	}
 	g.Expect(cl.Update(ctx, etcdInstance)).To(Succeed())
 

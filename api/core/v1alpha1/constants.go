@@ -39,9 +39,12 @@ const (
 	// This value will only be effective if etcd-druid is not configured with auto-reconciliation of Etcd resource specification via
 	// --enable-etcd-spec-auto-reconcile CLI flag.
 	DruidOperationReconcile = "reconcile"
-	// DisableEtcdRuntimeComponentCreationAnnotation is an annotation set by an operator to disable the creation and management of
-	// runtime components of the etcd cluster such as pods, PVCs, leases, RBAC resources, PDBs, services, etc.
-	DisableEtcdRuntimeComponentCreationAnnotation = "druid.gardener.cloud/disable-etcd-runtime-component-creation"
+	// ExternallyManagedPodsAnnotation is an annotation set by an operator to disable the creation of components that are involved
+	// in managing etcd pods (Pods, Services and PDB).
+	ExternallyManagedPodsAnnotation = "druid.gardener.cloud/externally-managed-pods"
+	// ExternallyManagedPodIPsAnnotation is an annotation set by an operator to declare the IPs of the etcd pods when the etcd pods are
+	// externally managed.
+	ExternallyManagedPodIPsAnnotation = "druid.gardener.cloud/externally-managed-pod-ips"
 )
 
 // Compaction Job/Pod reasons that are used to set the reason for a pod condition in the status of an Etcd resource.

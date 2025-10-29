@@ -366,9 +366,9 @@ func TestHandleUpdate(t *testing.T) {
 			name:               "disable runtime component creation annotation set",
 			objectLabels:       map[string]string{druidv1alpha1.LabelManagedByKey: druidv1alpha1.LabelManagedByValue, druidv1alpha1.LabelPartOfKey: testEtcdName},
 			isRuntimeComponent: true,
-			etcdAnnotations:    map[string]string{druidv1alpha1.DisableEtcdRuntimeComponentCreationAnnotation: ""},
+			etcdAnnotations:    map[string]string{druidv1alpha1.ExternallyManagedPodsAnnotation: ""},
 			expectedAllowed:    true,
-			expectedMessage:    fmt.Sprintf("Etcd %s has runtime component creation disabled, skipping validations for resource %v", testEtcdName, client.ObjectKey{Name: testObjectName, Namespace: testNamespace}),
+			expectedMessage:    fmt.Sprintf("Etcd %s has pod management disabled, skipping validations for resource %v", testEtcdName, client.ObjectKey{Name: testObjectName, Namespace: testNamespace}),
 			expectedCode:       http.StatusOK,
 		},
 		{

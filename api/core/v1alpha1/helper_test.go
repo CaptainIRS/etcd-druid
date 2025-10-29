@@ -435,7 +435,7 @@ func TestIsEtcdRuntimeComponentCreationEnabled(t *testing.T) {
 		{
 			name: "Runtime component creation is disabled",
 			annotations: map[string]string{
-				DisableEtcdRuntimeComponentCreationAnnotation: "",
+				ExternallyManagedPodsAnnotation: "",
 			},
 			expected: false,
 		},
@@ -447,7 +447,7 @@ func TestIsEtcdRuntimeComponentCreationEnabled(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			etcdObjMeta := createEtcdObjectMetadata(uuid.NewUUID(), test.annotations, nil, false)
-			actual := IsEtcdRuntimeComponentCreationEnabled(etcdObjMeta)
+			actual := IsPodManagementEnabled(etcdObjMeta)
 			g.Expect(actual).To(Equal(test.expected))
 		})
 	}

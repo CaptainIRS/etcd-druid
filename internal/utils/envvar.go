@@ -5,10 +5,13 @@
 package utils
 
 import (
+	"fmt"
+
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/core/v1alpha1"
 	"github.com/gardener/etcd-druid/internal/common"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -49,10 +52,15 @@ func GetEnvVarFromSecret(name, secretName, secretKey string, optional bool) core
 }
 
 // GetBackupRestoreContainerEnvVars returns non-provider-specific environment variables for the backup-restore container.
-func GetBackupRestoreContainerEnvVars(store *druidv1alpha1.StoreSpec) ([]corev1.EnvVar, error) {
+func GetBackupRestoreContainerEnvVars(etcdObjMeta metav1.ObjectMeta, store *druidv1alpha1.StoreSpec) ([]corev1.EnvVar, error) {
 	var envVars []corev1.EnvVar
 
-	envVars = append(envVars, getEnvVarFromFieldPath(common.EnvPodName, "metadata.name"))
+	if druidv1alpha1.IsPodManagementEnabled(etcdObjMeta) {
+		envVars = append(envVars, getEnvVarFromFieldPath(common.EnvPodName, "metadata.name"))
+	} else {
+		envVars = append(envVars, getEnvVarFromFieldPath(common.EnvPodIP, "status.podIP"))
+		envVars = append(envVars, GetEnvVarFromValue(common.EnvPodName, fmt.Sprintf("%s-$(%s)", etcdObjMeta.Name, common.EnvPodIP)))
+	}
 	envVars = append(envVars, getEnvVarFromFieldPath(common.EnvPodNamespace, "metadata.namespace"))
 
 	if store == nil {
