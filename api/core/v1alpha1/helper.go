@@ -47,7 +47,16 @@ func GetOrdinalPodName(etcdObjMeta metav1.ObjectMeta, ordinal int) string {
 // GetAllPodNames returns the names of all pods for the Etcd.
 func GetAllPodNames(etcdObjMeta metav1.ObjectMeta, replicas int32) []string {
 	podNames := make([]string, replicas)
-	for i := range int(replicas) {
+	startIter := 0
+	if IsMigrationStartOrdinalPresent(etcdObjMeta) {
+		startIter, _ = GetMigrationStartOrdinal(etcdObjMeta)
+	}
+	endIter := int(replicas)
+	if IsMigrationReplicasPresent(etcdObjMeta) {
+		migrationReplicas, _ := GetMigrationReplicas(etcdObjMeta)
+		endIter = int(migrationReplicas) + startIter
+	}
+	for i := startIter; i < endIter; i++ {
 		podNames[i] = GetOrdinalPodName(etcdObjMeta, i)
 	}
 	return podNames
@@ -169,4 +178,45 @@ func RemoveOperationAnnotation(etcdObjMeta metav1.ObjectMeta) {
 // IsEtcdRuntimeComponentCreationEnabled checks if the creation of runtime components is enabled for an Etcd resource.
 func IsEtcdRuntimeComponentCreationEnabled(etcdObjMeta metav1.ObjectMeta) bool {
 	return !metav1.HasAnnotation(etcdObjMeta, DisableEtcdRuntimeComponentCreationAnnotation)
+}
+
+// IsMigrationStartOrdinalPresent Set checks if the migration start ordinal is set in the annotations of the Etcd resource.
+func IsMigrationStartOrdinalPresent(etcdObjMeta metav1.ObjectMeta) bool {
+	return metav1.HasAnnotation(etcdObjMeta, MigrationStartOrdinal)
+}
+
+// IsMigrationReplicasPresent Set checks if the migration replicas is set in the annotations of the Etcd resource.
+func IsMigrationReplicasPresent(etcdObjMeta metav1.ObjectMeta) bool {
+	return metav1.HasAnnotation(etcdObjMeta, MigrationReplicas)
+}
+
+// IsMigrationDisableServiceEndpointPresent Set checks if the migration disable service endpoint is set in the annotations of the Etcd resource.
+func IsMigrationDisableServiceEndpointPresent(etcdObjMeta metav1.ObjectMeta) bool {
+	return metav1.HasAnnotation(etcdObjMeta, MigrationDisableServiceEndpoint)
+}
+
+func GetMigrationStartOrdinal(etcdObjMeta metav1.ObjectMeta) (int, error) {
+	ordinalStr, ok := etcdObjMeta.Annotations[MigrationStartOrdinal]
+	if !ok {
+		return 0, fmt.Errorf("migration start ordinal annotation not found")
+	}
+	var ordinal int
+	_, err := fmt.Sscanf(ordinalStr, "%d", &ordinal)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse migration start ordinal: %v", err)
+	}
+	return ordinal, nil
+}
+
+func GetMigrationReplicas(etcdObjMeta metav1.ObjectMeta) (int32, error) {
+	replicasStr, ok := etcdObjMeta.Annotations[MigrationReplicas]
+	if !ok {
+		return 0, fmt.Errorf("migration replicas annotation not found")
+	}
+	var replicas int32
+	_, err := fmt.Sscanf(replicasStr, "%d", &replicas)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse migration replicas: %v", err)
+	}
+	return replicas, nil
 }

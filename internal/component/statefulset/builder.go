@@ -136,11 +136,34 @@ func (b *stsBuilder) getStatefulSetLabels() map[string]string {
 
 func (b *stsBuilder) createStatefulSetSpec(ctx component.OperatorContext) error {
 	err := b.createPodTemplateSpec(ctx)
-	b.sts.Spec.Replicas = ptr.To(utils.IfConditionOr[int32](druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta), b.replicas, 0))
+	// b.sts.Spec.Replicas = ptr.To(utils.IfConditionOr[int32](druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta), b.replicas, 0))
+	if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta) {
+		if druidv1alpha1.IsMigrationReplicasPresent(b.etcd.ObjectMeta) {
+			replicas, err := druidv1alpha1.GetMigrationReplicas(b.etcd.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			b.sts.Spec.Replicas = ptr.To(replicas)
+		} else {
+			b.sts.Spec.Replicas = ptr.To(b.replicas)
+		}
+	} else {
+		b.sts.Spec.Replicas = ptr.To[int32](0)
+	}
 	b.logger.Info("Creating StatefulSet spec", "replicas", b.sts.Spec.Replicas, "name", b.sts.Name, "namespace", b.sts.Namespace)
 	b.sts.Spec.UpdateStrategy = defaultUpdateStrategy
 	if err != nil {
 		return err
+	}
+	if druidv1alpha1.IsMigrationStartOrdinalPresent(b.etcd.ObjectMeta) {
+		startOrdinal, err := druidv1alpha1.GetMigrationStartOrdinal(b.etcd.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		if b.sts.Spec.Ordinals == nil {
+			b.sts.Spec.Ordinals = &appsv1.StatefulSetOrdinals{}
+		}
+		b.sts.Spec.Ordinals.Start = int32(startOrdinal)
 	}
 	if !b.skipSetOrUpdateForbiddenFields {
 		b.sts.Spec.Selector = &metav1.LabelSelector{
@@ -465,14 +488,14 @@ func (b *stsBuilder) getBackupRestoreContainerCommandArgs() []string {
 		commandArgs = append(commandArgs, "--insecure-transport=false")
 		commandArgs = append(commandArgs, "--insecure-skip-tls-verify=false")
 		commandArgs = append(commandArgs, fmt.Sprintf("--endpoints=https://%s-local:%d", b.etcd.Name, b.clientPort))
-		if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta) {
+		if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta) && !druidv1alpha1.IsMigrationDisableServiceEndpointPresent(b.etcd.ObjectMeta) {
 			commandArgs = append(commandArgs, fmt.Sprintf("--service-endpoints=https://%s:%d", druidv1alpha1.GetClientServiceName(b.etcd.ObjectMeta), b.clientPort))
 		}
 	} else {
 		commandArgs = append(commandArgs, "--insecure-transport=true")
 		commandArgs = append(commandArgs, "--insecure-skip-tls-verify=true")
 		commandArgs = append(commandArgs, fmt.Sprintf("--endpoints=http://%s-local:%d", b.etcd.Name, b.clientPort))
-		if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta) {
+		if druidv1alpha1.IsEtcdRuntimeComponentCreationEnabled(b.etcd.ObjectMeta) && !druidv1alpha1.IsMigrationDisableServiceEndpointPresent(b.etcd.ObjectMeta) {
 			commandArgs = append(commandArgs, fmt.Sprintf("--service-endpoints=http://%s:%d", druidv1alpha1.GetClientServiceName(b.etcd.ObjectMeta), b.clientPort))
 		}
 	}

@@ -1,14 +1,14 @@
 images:
-- name: etcd-wrapper
-  sourceRepository: github.com/gardener/etcd-wrapper
-  repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcd-wrapper
-  tag: "v0.5.2"
-- name: etcd-backup-restore
-  resourceId:
-    name: 'etcdbrctl'
-  sourceRepository: github.com/gardener/etcd-backup-restore
-  repository: europe-docker.pkg.dev/gardener-project/public/gardener/etcdbrctl
-  tag: "v0.39.0"
-- name: alpine
-  repository: europe-docker.pkg.dev/gardener-project/public/3rd/alpine
-  tag: "3.21.3"
+  - name: etcd-wrapper
+    sourceRepository: github.com/gardener/etcd-wrapper
+    repository: localhost:5003/europe-docker.pkg.dev/gardener-project/snapshots/gardener/etcd-wrapper
+    tag: "v0.6.0-dev"
+  - name: etcd-backup-restore
+    resourceId:
+      name: "etcdbrctl"
+    sourceRepository: github.com/gardener/etcd-backup-restore
+    repository: localhost:5003/europe-docker.pkg.dev/gardener-project/snapshots/gardener/etcdbrctl
+    tag: "v0.40.0-dev"
+  - name: alpine
+    repository: europe-docker.pkg.dev/gardener-project/public/3rd/alpine
+    tag: "3.21.3"

@@ -42,6 +42,12 @@ const (
 	// DisableEtcdRuntimeComponentCreationAnnotation is an annotation set by an operator to disable the creation and management of
 	// runtime components of the etcd cluster such as pods, PVCs, leases, RBAC resources, PDBs, services, etc.
 	DisableEtcdRuntimeComponentCreationAnnotation = "druid.gardener.cloud/disable-etcd-runtime-component-creation"
+	// MigrationStartOrdinal is an annotation set on an Etcd resource to indicate the start ordinal during an etcd cluster migration.
+	MigrationStartOrdinal = "druid.gardener.cloud/migration-start-ordinal"
+	// MigrationReplicas is an annotation set on an Etcd resource to indicate the number of replicas during an etcd cluster migration.
+	MigrationReplicas = "druid.gardener.cloud/migration-replicas"
+	// MigrationDisableServiceEndpoint is an annotation set on an Etcd resource to indicate whether the service endpoint should be disabled during an etcd cluster migration.
+	MigrationDisableServiceEndpoint = "druid.gardener.cloud/migration-disable-service-endpoint"
 )
 
 // Compaction Job/Pod reasons that are used to set the reason for a pod condition in the status of an Etcd resource.
