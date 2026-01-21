@@ -40,6 +40,17 @@ type Handler interface {
 	Admit(ctx context.Context) Result
 	// Execute executes the main logic of the task. Is executed after Admit has returned a successful result.
 	Execute(ctx context.Context) Result
-	// Cleanup performs any necessary cleanup after task execution, regardless of success or failure.
+	// Cleanup is invoked by the EtcdOpsTask controller during the task's deletion flow,
+	// after the task has reached a terminal state (Succeeded/Failed/Rejected) and its TTL
+	// has expired. Implementations should:
+	//  - be idempotent and fast;
+	//  - prefer managing child resources via ownerReferences so Kubernetes GC can remove
+	//    them automatically without explicit deletions;
+	//  - return a no-op Result when there is nothing to clean up.
+	//
+	// Notes:
+	//  - The controller skips calling Cleanup for rejected tasks.
+	//  - Any Error set in the returned Result will be recorded in task status. Use
+	//    Requeue=true only for transient failures that are expected to succeed on retry.
 	Cleanup(ctx context.Context) Result
 }

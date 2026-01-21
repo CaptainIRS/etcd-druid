@@ -11,8 +11,11 @@ import (
 	druidconfigv1alpha1 "github.com/gardener/etcd-druid/api/config/v1alpha1"
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/core/v1alpha1"
 	"github.com/gardener/etcd-druid/internal/controller/etcdopstask/handler"
+	"github.com/gardener/etcd-druid/internal/controller/etcdopstask/handler/maintenance"
 	"github.com/gardener/etcd-druid/internal/controller/etcdopstask/handler/ondemandsnapshot"
 	ctrlutils "github.com/gardener/etcd-druid/internal/controller/utils"
+	"github.com/gardener/etcd-druid/internal/images"
+	"github.com/gardener/etcd-druid/internal/utils/imagevector"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,27 +35,32 @@ type Reconciler struct {
 	logger              logr.Logger
 	config              *druidconfigv1alpha1.EtcdOpsTaskControllerConfiguration
 	taskHandlerRegistry handler.TaskHandlerRegistry
+	imageVector         imagevector.ImageVector
 }
 
 // NewReconciler returns a new Reconciler for EtcdOpsTask resources.
 func NewReconciler(mgr manager.Manager, cfg *druidconfigv1alpha1.EtcdOpsTaskControllerConfiguration) *Reconciler {
+	imageVector, _ := images.CreateImageVector()
 	taskHandlerRegistry := DefaultTaskHandlerRegistry()
-	return NewReconcilerWithTaskHandlerRegistry(mgr, cfg, taskHandlerRegistry)
+	return NewReconcilerWithTaskHandlerRegistry(mgr, cfg, taskHandlerRegistry, imageVector)
 }
 
 // NewReconcilerWithTaskHandlerRegistry returns a new Reconciler with a custom task handler registry.
-func NewReconcilerWithTaskHandlerRegistry(mgr manager.Manager, cfg *druidconfigv1alpha1.EtcdOpsTaskControllerConfiguration, taskHandlerRegistry handler.TaskHandlerRegistry) *Reconciler {
+func NewReconcilerWithTaskHandlerRegistry(mgr manager.Manager, cfg *druidconfigv1alpha1.EtcdOpsTaskControllerConfiguration, taskHandlerRegistry handler.TaskHandlerRegistry, imageVector imagevector.ImageVector) *Reconciler {
 	logger := log.Log.WithName(controllerName)
 	return &Reconciler{
 		client:              mgr.GetClient(),
 		logger:              logger,
 		config:              cfg,
 		taskHandlerRegistry: taskHandlerRegistry,
+		imageVector:         imageVector,
 	}
 }
 
 // +kubebuilder:rbac:groups=druid.gardener.cloud,resources=etcdopstasks,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups=druid.gardener.cloud,resources=etcdopstasks/status,verbs=get;create;update;patch
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 
 // Reconcile is the main reconciliation loop for EtcdOpsTask resources.
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -93,7 +101,11 @@ func (r *Reconciler) getTaskHandler(task *druidv1alpha1.EtcdOpsTask) (handler.Ha
 
 	switch {
 	case config.OnDemandSnapshot != nil:
-		return r.taskHandlerRegistry.GetHandler("OnDemandSnapshot", r.client, task, nil)
+		return r.taskHandlerRegistry.GetHandler("OnDemandSnapshot", r.client, task, nil, r.imageVector)
+	case config.Maintenance != nil && config.Maintenance.Compact != nil:
+		return r.taskHandlerRegistry.GetHandler("MaintenanceCompact", r.client, task, nil, r.imageVector)
+	case config.Maintenance != nil && config.Maintenance.Defrag != nil:
+		return r.taskHandlerRegistry.GetHandler("MaintenanceDefrag", r.client, task, nil, r.imageVector)
 	default:
 		return nil, fmt.Errorf("unsupported task configuration: no valid task type found")
 	}
@@ -105,10 +117,14 @@ func (r *Reconciler) shouldDeleteTask(task *druidv1alpha1.EtcdOpsTask) bool {
 
 // DefaultTaskHandlerRegistry creates and initializes the task handler registry with default handlers.
 func DefaultTaskHandlerRegistry() handler.TaskHandlerRegistry {
+
 	registry := handler.NewTaskHandlerRegistry()
 
 	// Register OnDemandSnapshot handler
 	registry.Register("OnDemandSnapshot", ondemandsnapshot.New)
+	// Register Maintenance handlers
+	registry.Register("MaintenanceCompact", maintenance.NewCompact)
+	registry.Register("MaintenanceDefrag", maintenance.NewDefrag)
 	return registry
 }
 

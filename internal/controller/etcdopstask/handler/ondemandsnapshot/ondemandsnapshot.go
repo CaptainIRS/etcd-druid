@@ -17,6 +17,7 @@ import (
 	taskhandler "github.com/gardener/etcd-druid/internal/controller/etcdopstask/handler"
 	utils "github.com/gardener/etcd-druid/internal/controller/etcdopstask/handler/utils"
 	druiderr "github.com/gardener/etcd-druid/internal/errors"
+	"github.com/gardener/etcd-druid/internal/utils/imagevector"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -47,7 +48,7 @@ type handler struct {
 }
 
 // New creates a new instance of OnDemandSnapshotTask with an optional HTTP client.
-func New(k8sClient client.Client, task *druidv1alpha1.EtcdOpsTask, httpClient *http.Client) (taskhandler.Handler, error) {
+func New(k8sClient client.Client, task *druidv1alpha1.EtcdOpsTask, httpClient *http.Client, imageVector imagevector.ImageVector) (taskhandler.Handler, error) {
 	etcdRef := task.GetEtcdReference()
 
 	var snapshotTimeout int32

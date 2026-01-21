@@ -101,7 +101,7 @@ func TestOnDemandSnapshotTaskAdmit(t *testing.T) {
 				IsFinal:            ptr.To(false),
 			}).Build()
 
-			taskHandler, err := New(cl, etcdOpsTask, nil)
+			taskHandler, err := New(cl, etcdOpsTask, nil, nil)
 			g.Expect(err).To(BeNil())
 
 			admitResult := taskHandler.Admit(context.Background())
@@ -301,7 +301,7 @@ func TestOnDemandSnapshotTaskExecute(t *testing.T) {
 					},
 				}
 			}
-			taskHandler, err := New(cl, etcdOpsTask, &fakeHttpClient)
+			taskHandler, err := New(cl, etcdOpsTask, &fakeHttpClient, nil)
 			g.Expect(err).To(BeNil())
 
 			runResult := taskHandler.Execute(context.Background())
@@ -355,7 +355,7 @@ func TestOndemandSnapshotTaskCleanup(t *testing.T) {
 				IsFinal:            ptr.To(false),
 			}).Build()
 
-			taskHandler, err := New(cl, etcdOpsTask, nil)
+			taskHandler, err := New(cl, etcdOpsTask, nil, nil)
 			g.Expect(err).To(BeNil())
 
 			cleanupResult := taskHandler.Cleanup(context.Background())
@@ -422,7 +422,7 @@ func TestCheckPrerequisitesForSnapshot(t *testing.T) {
 				IsFinal:            ptr.To(false),
 			}).Build()
 
-			taskHandler, err := New(cl, etcdOpsTask, nil)
+			taskHandler, err := New(cl, etcdOpsTask, nil, nil)
 			g.Expect(err).To(BeNil())
 
 			h := taskHandler.(*handler)

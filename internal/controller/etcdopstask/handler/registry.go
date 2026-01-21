@@ -9,19 +9,20 @@ import (
 	"net/http"
 
 	"github.com/gardener/etcd-druid/api/core/v1alpha1"
+	"github.com/gardener/etcd-druid/internal/utils/imagevector"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TaskHandlerFactory defines a function signature for creating task handlers.
-type TaskHandlerFactory func(k8sClient client.Client, task *v1alpha1.EtcdOpsTask, httpClient *http.Client) (Handler, error)
+type TaskHandlerFactory func(k8sClient client.Client, task *v1alpha1.EtcdOpsTask, httpClient *http.Client, imageVector imagevector.ImageVector) (Handler, error)
 
 // TaskHandlerRegistry manages the registration and retrieval of task handlers.
 type TaskHandlerRegistry interface {
 	// Register registers a task handler factory for a given task type.
 	Register(taskType string, factory TaskHandlerFactory)
 	// GetHandler creates and returns a task handler for the given task type.
-	GetHandler(taskType string, k8sClient client.Client, task *v1alpha1.EtcdOpsTask, httpClient *http.Client) (Handler, error)
+	GetHandler(taskType string, k8sClient client.Client, task *v1alpha1.EtcdOpsTask, httpClient *http.Client, imageVector imagevector.ImageVector) (Handler, error)
 }
 
 // taskHandlerRegistry implements TaskHandlerRegistry.
@@ -35,12 +36,12 @@ func (t *taskHandlerRegistry) Register(taskType string, factory TaskHandlerFacto
 }
 
 // GetHandler creates and returns a task handler for the given task type.
-func (t *taskHandlerRegistry) GetHandler(taskType string, k8sClient client.Client, task *v1alpha1.EtcdOpsTask, httpClient *http.Client) (Handler, error) {
+func (t *taskHandlerRegistry) GetHandler(taskType string, k8sClient client.Client, task *v1alpha1.EtcdOpsTask, httpClient *http.Client, imageVector imagevector.ImageVector) (Handler, error) {
 	taskHandler, exists := t.taskhandlers[taskType]
 	if !exists {
 		return nil, fmt.Errorf("task type %s not supported", taskType)
 	}
-	return taskHandler(k8sClient, task, httpClient)
+	return taskHandler(k8sClient, task, httpClient, imageVector)
 }
 
 // NewTaskHandlerRegistry creates a new task handler registry.

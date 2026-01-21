@@ -812,6 +812,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `onDemandSnapshot` _[OnDemandSnapshotConfig](#ondemandsnapshotconfig)_ | OnDemandSnapshot defines the configuration for an on-demand snapshot task. |  |  |
+| `maintenance` _[MaintenanceConfig](#maintenanceconfig)_ | Maintenance defines the configuration for live etcd maintenance operations.<br />Exactly one of compact or defrag must be specified. |  | MaxProperties: 1 <br />MinProperties: 1 <br /> |
 
 
 #### EtcdOpsTaskSpec
@@ -954,6 +955,59 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `reelectionPeriod` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#duration-v1-meta)_ | ReelectionPeriod defines the Period after which leadership status of corresponding etcd is checked. |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br /> |
 | `etcdConnectionTimeout` _[Duration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#duration-v1-meta)_ | EtcdConnectionTimeout defines the timeout duration for etcd client connection during leader election. |  | Pattern: `^([0-9]+(\.[0-9]+)?(ns\|us\|µs\|ms\|s\|m\|h))+$` <br />Type: string <br /> |
+
+
+#### MaintenanceCompactConfig
+
+
+
+MaintenanceCompactConfig defines configuration for the maintenance compact operation.
+
+
+
+_Appears in:_
+- [MaintenanceConfig](#maintenanceconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `activeDeadlineSeconds` _integer_ | ActiveDeadlineSeconds specifies the maximum duration in seconds the Kubernetes Job may be active before it is terminated. | 600 | Minimum: 1 <br /> |
+
+
+#### MaintenanceConfig
+
+
+
+MaintenanceConfig holds the configuration for maintenance operations.
+Exactly one of its members must be set according to the operation to be performed.
+
+_Validation:_
+- MaxProperties: 1
+- MinProperties: 1
+
+_Appears in:_
+- [EtcdOpsTaskConfig](#etcdopstaskconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `compact` _[MaintenanceCompactConfig](#maintenancecompactconfig)_ | Compact defines the configuration for a live etcd compaction operation. |  |  |
+| `defrag` _[MaintenanceDefragConfig](#maintenancedefragconfig)_ | Defrag defines the configuration for a live etcd defragmentation operation. |  |  |
+
+
+#### MaintenanceDefragConfig
+
+
+
+MaintenanceDefragConfig defines configuration for the maintenance defrag operation.
+
+
+
+_Appears in:_
+- [MaintenanceConfig](#maintenanceconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `timeoutSeconds` _integer_ | TimeoutSeconds specifies the timeout for the etcd defragmentation operation.<br />If set, this overrides the Etcd spec's etcdDefragTimeout for this task execution. | 480 | Minimum: 1 <br /> |
+| `activeDeadlineSeconds` _integer_ | ActiveDeadlineSeconds specifies the maximum duration in seconds the Kubernetes Job may be active before it is terminated. | 1200 | Minimum: 1 <br /> |
 
 
 #### MetricsLevel

@@ -68,6 +68,53 @@ spec:
                 maxProperties: 1
                 minProperties: 1
                 properties:
+                  maintenance:
+                    description: |-
+                      Maintenance defines the configuration for live etcd maintenance operations.
+                      Exactly one of compact or defrag must be specified.
+                    maxProperties: 1
+                    minProperties: 1
+                    properties:
+                      compact:
+                        description: Compact defines the configuration for a live
+                          etcd compaction operation.
+                        properties:
+                          activeDeadlineSeconds:
+                            default: 600
+                            description: ActiveDeadlineSeconds specifies the maximum
+                              duration in seconds the Kubernetes Job may be active
+                              before it is terminated.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        required:
+                        - activeDeadlineSeconds
+                        type: object
+                      defrag:
+                        description: Defrag defines the configuration for a live etcd
+                          defragmentation operation.
+                        properties:
+                          activeDeadlineSeconds:
+                            default: 1200
+                            description: ActiveDeadlineSeconds specifies the maximum
+                              duration in seconds the Kubernetes Job may be active
+                              before it is terminated.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          timeoutSeconds:
+                            default: 480
+                            description: |-
+                              TimeoutSeconds specifies the timeout for the etcd defragmentation operation.
+                              If set, this overrides the Etcd spec's etcdDefragTimeout for this task execution.
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        required:
+                        - activeDeadlineSeconds
+                        - timeoutSeconds
+                        type: object
+                    type: object
                   onDemandSnapshot:
                     description: OnDemandSnapshot defines the configuration for an
                       on-demand snapshot task.

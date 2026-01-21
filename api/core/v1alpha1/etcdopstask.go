@@ -128,6 +128,47 @@ type EtcdOpsTaskConfig struct {
 	// OnDemandSnapshot defines the configuration for an on-demand snapshot task.
 	// +optional
 	OnDemandSnapshot *OnDemandSnapshotConfig `json:"onDemandSnapshot,omitempty"`
+
+	// Maintenance defines the configuration for live etcd maintenance operations.
+	// Exactly one of compact or defrag must be specified.
+	// +optional
+	Maintenance *MaintenanceConfig `json:"maintenance,omitempty"`
+}
+
+// MaintenanceConfig holds the configuration for maintenance operations.
+// Exactly one of its members must be set according to the operation to be performed.
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type MaintenanceConfig struct {
+	// Compact defines the configuration for a live etcd compaction operation.
+	// +optional
+	Compact *MaintenanceCompactConfig `json:"compact,omitempty"`
+
+	// Defrag defines the configuration for a live etcd defragmentation operation.
+	// +optional
+	Defrag *MaintenanceDefragConfig `json:"defrag,omitempty"`
+}
+
+// MaintenanceCompactConfig defines configuration for the maintenance compact operation.
+type MaintenanceCompactConfig struct {
+	// ActiveDeadlineSeconds specifies the maximum duration in seconds the Kubernetes Job may be active before it is terminated.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=600
+	ActiveDeadlineSeconds int32 `json:"activeDeadlineSeconds"`
+}
+
+// MaintenanceDefragConfig defines configuration for the maintenance defrag operation.
+type MaintenanceDefragConfig struct {
+	// TimeoutSeconds specifies the timeout for the etcd defragmentation operation.
+	// If set, this overrides the Etcd spec's etcdDefragTimeout for this task execution.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=480
+	TimeoutSeconds int32 `json:"timeoutSeconds"`
+
+	// ActiveDeadlineSeconds specifies the maximum duration in seconds the Kubernetes Job may be active before it is terminated.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=1200
+	ActiveDeadlineSeconds int32 `json:"activeDeadlineSeconds"`
 }
 
 ////////////////////////////////////////////////////////////////////////////////
