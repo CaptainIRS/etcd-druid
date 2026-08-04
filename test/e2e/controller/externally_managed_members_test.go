@@ -93,7 +93,7 @@ func TestExternallyManagedMembersScaleOut(t *testing.T) {
 				WithEtcdServerPort(ptr.To(ports.PeerPort)).
 				WithBackupPort(ptr.To(ports.BackupPort)).
 				WithEtcdWrapperPort(ptr.To(ports.WrapperPort)).
-				WithBackupRestoreContainerImage("europe-docker.pkg.dev/gardener-project/snapshots/gardener/etcdbrctl:v0.44.0-debd95bd77352280dada2a9a94efa9d1d20bbb78").
+				WithBackupRestoreContainerImage("europe-docker.pkg.dev/gardener-project/snapshots/gardener/etcdbrctl:v0.45.0-dev").
 				WithExternallyManagedMembers(workerIPs[:1])
 			if tc.tlsEnabled {
 				etcdBuilder = etcdBuilder.WithClientTLS().WithPeerTLS().WithBackupRestoreTLS()
@@ -114,7 +114,7 @@ func TestExternallyManagedMembersScaleOut(t *testing.T) {
 			if tc.tlsEnabled {
 				copyTLSToWorker(g, e2eutils.DefaultEtcdName, testNamespace, 0, etcdCertsDir, etcdPeerCertsDir, etcdbrCertsDir)
 			}
-			deployStaticPod(g, ctx, cl, e2eutils.DefaultEtcdName, testNamespace, 0, saTokenFile, caCertFile)
+			deployStaticPod(g, ctx, cl, e2eutils.DefaultEtcdName, testNamespace, 0, saTokenFile, caCertFile, []string{})
 
 			logger.Info("waiting for 1 member to be ready")
 			testEnv.CheckEtcdReady(g, etcd, timeoutExtMembersReady)
@@ -143,7 +143,7 @@ func TestExternallyManagedMembersScaleOut(t *testing.T) {
 			if tc.tlsEnabled {
 				copyTLSToWorker(g, e2eutils.DefaultEtcdName, testNamespace, 1, etcdCertsDir, etcdPeerCertsDir, etcdbrCertsDir)
 			}
-			deployStaticPod(g, ctx, cl, e2eutils.DefaultEtcdName, testNamespace, 1, saTokenFile, caCertFile)
+			deployStaticPod(g, ctx, cl, e2eutils.DefaultEtcdName, testNamespace, 1, saTokenFile, caCertFile, workerIPs[:1])
 
 			logger.Info("waiting for 2 members to be ready")
 			testEnv.CheckEtcdReady(g, etcd, timeoutExtMembersReady)
@@ -172,7 +172,7 @@ func TestExternallyManagedMembersScaleOut(t *testing.T) {
 			if tc.tlsEnabled {
 				copyTLSToWorker(g, e2eutils.DefaultEtcdName, testNamespace, 2, etcdCertsDir, etcdPeerCertsDir, etcdbrCertsDir)
 			}
-			deployStaticPod(g, ctx, cl, e2eutils.DefaultEtcdName, testNamespace, 2, saTokenFile, caCertFile)
+			deployStaticPod(g, ctx, cl, e2eutils.DefaultEtcdName, testNamespace, 2, saTokenFile, caCertFile, workerIPs[:2])
 
 			logger.Info("waiting for 3 members to be ready")
 			testEnv.CheckEtcdReady(g, etcd, timeoutExtMembersReady)
@@ -181,6 +181,10 @@ func TestExternallyManagedMembersScaleOut(t *testing.T) {
 			testEnv.VerifyMemberLeases(g, etcd, workerIPs[:3], timeoutMemberLeases)
 			testEnv.VerifyStatefulSetZeroReplicas(g, etcd)
 			testEnv.VerifyNoServicesOrPDB(g, etcd)
+
+			logger.Info("waiting for all workers to have all 3 IPs in endpoints file")
+			waitForEndpointsOnAllWorkers(g, testNamespace, e2eutils.DefaultEtcdName, 3, workerIPs[:3])
+			logger.Info("all workers have correct endpoints file")
 
 			// Verify final Etcd status
 			g.Expect(cl.Get(ctx, client.ObjectKeyFromObject(etcd), etcd)).To(Succeed())

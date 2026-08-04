@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	druidapicommon "github.com/gardener/etcd-druid/api/common"
@@ -49,6 +50,10 @@ const (
 	timeoutExtMembersReady     = 10 * time.Minute
 
 	pollingInterval = 2 * time.Second
+
+	envEndpoints      = "ENDPOINTS"
+	endpointsDirName  = "endpoints"
+	endpointsFileName = "endpoints"
 )
 
 var (
@@ -169,7 +174,8 @@ func setupWorker(g *WithT, ctx context.Context, cl client.Client, etcdName, name
 mkdir -p %[1]s/etcd-config-file %[1]s/data %[1]s/serviceaccount \
   %[1]s/etcd-ca %[1]s/etcd-server-tls %[1]s/etcd-client-tls \
   %[1]s/etcd-peer-ca %[1]s/etcd-peer-server-tls \
-  %[1]s/backup-restore-ca %[1]s/backup-restore-server-tls %[1]s/backup-restore-client-tls`, base)
+  %[1]s/backup-restore-ca %[1]s/backup-restore-server-tls %[1]s/backup-restore-client-tls \
+  %[1]s/endpoints`, base)
 	g.Expect(dockerExec(worker, script)).To(Succeed())
 	chownNonroot(g, worker, base)
 
@@ -244,7 +250,7 @@ func writeConfigToWorker(g *WithT, ctx context.Context, cl client.Client, etcdNa
 }
 
 // deployStaticPod deploys an etcd static pod to a worker node.
-func deployStaticPod(g *WithT, ctx context.Context, cl client.Client, etcdName, namespace string, ordinal int, saTokenFile, caCertFile string) {
+func deployStaticPod(g *WithT, ctx context.Context, cl client.Client, etcdName, namespace string, ordinal int, saTokenFile, caCertFile string, priorMemberIPs []string) {
 	worker := workerName(ordinal)
 	base := workerBaseDir(namespace, etcdName)
 
@@ -255,6 +261,8 @@ func deployStaticPod(g *WithT, ctx context.Context, cl client.Client, etcdName, 
 	g.Expect(dockerCp(caCertFile, worker, saDir+"/ca.crt")).To(Succeed())
 	chownNonroot(g, worker, saDir)
 
+	writeEndpointsFileToWorker(g, namespace, etcdName, ordinal, priorMemberIPs)
+
 	podYAML, err := translateStatefulSetToPod(ctx, cl, etcdName, namespace)
 	g.Expect(err).ToNot(HaveOccurred())
 
@@ -264,6 +272,28 @@ func deployStaticPod(g *WithT, ctx context.Context, cl client.Client, etcdName, 
 // updateWorkerConfig updates config files on a worker without restarting the pod.
 func updateWorkerConfig(g *WithT, ctx context.Context, cl client.Client, etcdName, namespace string, ordinal int) {
 	writeConfigToWorker(g, ctx, cl, etcdName, namespace, ordinal)
+}
+
+// writeEndpointsFileToWorker writes the given IPs (one per line) to the endpoints file on the
+// specified worker node. An empty slice produces an empty file, which etcd-backup-restore
+// treats as the bootstrap state for the first member (no prior peers).
+func writeEndpointsFileToWorker(g *WithT, namespace, etcdName string, ordinal int, ips []string) {
+	worker := workerName(ordinal)
+	base := workerBaseDir(namespace, etcdName)
+
+	content := strings.Join(ips, "\n")
+	if len(ips) > 0 {
+		content += "\n"
+	}
+
+	localDir := filepath.Join(e2eutils.ExtMembersResourcesDir, namespace, endpointsDirName)
+	g.Expect(os.MkdirAll(localDir, 0755)).To(Succeed()) // #nosec G301 -- local directory creation for test purposes.
+	localFile := filepath.Join(localDir, fmt.Sprintf("%s-%d", endpointsFileName, ordinal))
+	g.Expect(os.WriteFile(localFile, []byte(content), 0600)).To(Succeed()) // #nosec G306 -- test file
+
+	remotePath := fmt.Sprintf("%s/%s/%s", base, endpointsDirName, endpointsFileName)
+	g.Expect(dockerCp(localFile, worker, remotePath)).To(Succeed())
+	chownNonroot(g, worker, fmt.Sprintf("%s/%s", base, endpointsDirName))
 }
 
 // translateStatefulSetToPod fetches the StatefulSet created by druid and converts
@@ -328,6 +358,12 @@ func translateStatefulSetToPod(ctx context.Context, cl client.Client, etcdName, 
 				HostPath: &corev1.HostPathVolumeSource{Path: base + "/serviceaccount", Type: &dirType},
 			},
 		},
+		corev1.Volume{
+			Name: endpointsDirName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{Path: fmt.Sprintf("%s/%s", base, endpointsDirName), Type: &dirType},
+			},
+		},
 	)
 	pod.Spec.Volumes = volumes
 
@@ -337,6 +373,19 @@ func translateStatefulSetToPod(ctx context.Context, cl client.Client, etcdName, 
 			MountPath: "/var/run/secrets/kubernetes.io/serviceaccount",
 			ReadOnly:  true,
 		})
+		endpointsFilePath := fmt.Sprintf("%s/%s/%s", base, endpointsDirName, endpointsFileName)
+		pod.Spec.Containers[1].VolumeMounts = append(pod.Spec.Containers[1].VolumeMounts, corev1.VolumeMount{
+			Name:      endpointsDirName,
+			MountPath: fmt.Sprintf("%s/%s", base, endpointsDirName),
+		})
+		pod.Spec.Containers[1].Env = append(pod.Spec.Containers[1].Env, corev1.EnvVar{
+			Name:  envEndpoints,
+			Value: endpointsFilePath,
+		})
+		pod.Spec.Containers[1].Args = append(pod.Spec.Containers[1].Args,
+			"--enable-endpoints-refresh=true",
+			"--endpoints-refresh-interval=10s",
+		)
 	}
 
 	return yaml.Marshal(pod)
@@ -348,6 +397,54 @@ func writeManifest(g *WithT, worker, namespace, etcdName string, podYAML []byte)
 	localPath := filepath.Join(e2eutils.ExtMembersResourcesDir, namespace, manifest+".yaml")
 	g.Expect(os.WriteFile(localPath, podYAML, 0600)).To(Succeed()) // #nosec G306 -- test file
 	g.Expect(dockerCp(localPath, worker, fmt.Sprintf("/etc/kubernetes/manifests/%s.yaml", manifest))).To(Succeed())
+}
+
+// readEndpointsFileFromWorker reads the endpoints file from a worker node and returns the IPs.
+func readEndpointsFileFromWorker(namespace, etcdName string, ordinal int) ([]string, error) {
+	worker := workerName(ordinal)
+	base := workerBaseDir(namespace, etcdName)
+	remotePath := fmt.Sprintf("%s/%s/%s", base, endpointsDirName, endpointsFileName)
+
+	cmd := exec.Command("docker", "exec", worker, "cat", remotePath) // #nosec G204 -- e2e test utility
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read endpoints file on worker %s: %w", worker, err)
+	}
+
+	var ips []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			ips = append(ips, line)
+		}
+	}
+	return ips, nil
+}
+
+// waitForEndpointsOnAllWorkers polls the endpoints file on each worker until all workers
+// have exactly the expected IPs (in any order), or the timeout is reached.
+func waitForEndpointsOnAllWorkers(g *WithT, namespace, etcdName string, numWorkers int, expectedIPs []string) {
+	g.Eventually(func() error {
+		for i := range numWorkers {
+			ips, err := readEndpointsFileFromWorker(namespace, etcdName, i)
+			if err != nil {
+				return err
+			}
+			if len(ips) != len(expectedIPs) {
+				return fmt.Errorf("worker %d: got %d IPs (%v), want %d (%v)", i, len(ips), ips, len(expectedIPs), expectedIPs)
+			}
+			ipSet := make(map[string]struct{}, len(ips))
+			for _, ip := range ips {
+				ipSet[ip] = struct{}{}
+			}
+			for _, expected := range expectedIPs {
+				if _, ok := ipSet[expected]; !ok {
+					return fmt.Errorf("worker %d: missing IP %s in endpoints file (got %v)", i, expected, ips)
+				}
+			}
+		}
+		return nil
+	}, timeoutExtMembersReady, pollingInterval).Should(Succeed())
 }
 
 // chownNonroot sets ownership of a directory on a worker node to UID/GID 65532,
