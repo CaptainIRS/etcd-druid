@@ -14,6 +14,7 @@ import (
 	druidv1alpha1 "github.com/gardener/etcd-druid/api/core/v1alpha1"
 	clientkubernetes "github.com/gardener/etcd-druid/internal/client/kubernetes"
 	etcdmember "github.com/gardener/etcd-druid/internal/etcd"
+	testutils "github.com/gardener/etcd-druid/test/utils"
 
 	etcdserverpb "go.etcd.io/etcd/api/v3/etcdserverpb"
 	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
@@ -22,6 +23,7 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	. "github.com/onsi/gomega"
@@ -373,6 +375,83 @@ func TestListMembersNoClientURLs(t *testing.T) {
 	g.Expect(byName["etcd-main-0"].Role).To(Equal(etcdmember.MemberRoleLeader))
 	g.Expect(byName["etcd-main-0"].Health).To(Equal(etcdmember.MemberHealthHealthy))
 	g.Expect(byName["etcd-main-1"].Health).To(Equal(etcdmember.MemberHealthUnknown))
+}
+
+func TestNewClientEndpoints(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		addresses []string
+		port      *int32
+		tls       bool
+		want      []string
+	}{
+		{
+			name: "managed members use the client Service",
+			want: []string{"http://etcd-main-client.test-ns.svc:2379"},
+		},
+		{
+			name: "managed members with custom client port",
+			port: ptr.To[int32](12379),
+			want: []string{"http://etcd-main-client.test-ns.svc:12379"},
+		},
+		{
+			name:      "single external member",
+			addresses: []string{"10.0.0.1"},
+			want:      []string{"http://10.0.0.1:2379"},
+		},
+		{
+			name:      "all external members are registered",
+			addresses: []string{"10.0.0.1", "10.0.0.2", "10.0.0.3"},
+			want:      []string{"http://10.0.0.1:2379", "http://10.0.0.2:2379", "http://10.0.0.3:2379"},
+		},
+		{
+			name:      "external IPv4 IPv6 and hostname with custom client port",
+			addresses: []string{"10.0.0.1", "2001:db8::1", "etcd-member.example.com"},
+			port:      ptr.To[int32](12379),
+			want:      []string{"http://10.0.0.1:12379", "http://[2001:db8::1]:12379", "http://etcd-member.example.com:12379"},
+		},
+		{
+			name:      "all external members use TLS",
+			addresses: []string{"10.0.0.1", "2001:db8::1"},
+			tls:       true,
+			want:      []string{"https://10.0.0.1:2379", "https://[2001:db8::1]:2379"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			g := NewWithT(t)
+			etcd := &druidv1alpha1.Etcd{
+				ObjectMeta: metav1.ObjectMeta{Name: memberClientEtcdName, Namespace: memberClientNamespace},
+				Spec: druidv1alpha1.EtcdSpec{
+					ExternallyManagedMemberAddresses: tc.addresses,
+					Etcd:                             druidv1alpha1.EtcdConfig{ClientPort: tc.port},
+				},
+			}
+			builder := fakeclient.NewClientBuilder().WithScheme(clientkubernetes.Scheme)
+			if tc.tls {
+				caPEM, err := testutils.GenerateCACert("etcd-client")
+				g.Expect(err).NotTo(HaveOccurred())
+				builder.WithObjects(&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-etcd", Namespace: memberClientNamespace},
+					Data:       map[string][]byte{"ca.crt": caPEM},
+				})
+				etcd.Spec.Etcd.ClientUrlTLS = &druidv1alpha1.TLSConfig{
+					TLSCASecretRef: druidv1alpha1.SecretReference{
+						SecretReference: corev1.SecretReference{Name: "ca-etcd"},
+					},
+				}
+			}
+
+			c, err := NewFactory().NewClient(context.Background(), builder.Build(), etcd)
+			g.Expect(err).NotTo(HaveOccurred())
+			t.Cleanup(func() { g.Expect(c.Close()).To(Succeed()) })
+			g.Expect(c.(*etcdClient).api.(*clientv3.Client).Endpoints()).To(Equal(tc.want))
+		})
+	}
 }
 
 // TestNewClientFailsClosedWhenTLSExpectedButUnresolved verifies that

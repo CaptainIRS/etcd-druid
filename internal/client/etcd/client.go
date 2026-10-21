@@ -11,6 +11,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -80,23 +82,30 @@ func NewFactory() Factory {
 }
 
 // NewClient builds a clientv3-backed Client connecting to the Etcd resource's
-// client Service. When TLS is enabled, mTLS credentials are resolved from the
-// Etcd CR's TLS secret references; it fails closed if they cannot be resolved.
+// client Service or all externally managed member addresses. When TLS is enabled,
+// mTLS credentials are resolved from the Etcd CR's TLS secret references; it fails
+// closed if they cannot be resolved.
 func (f *clientFactory) NewClient(ctx context.Context, k8sClient client.Client, etcd *druidv1alpha1.Etcd) (Client, error) {
 	scheme, tlsConfig, err := kutil.GetEtcdClientSchemeAndTLSConfig(ctx, k8sClient, etcd)
 	if err != nil {
 		return nil, err
 	}
 
-	endpoint := fmt.Sprintf("%s://%s:%d",
-		scheme,
-		druidv1alpha1.GetClientHostname(etcd),
-		druidv1alpha1.GetClientPort(etcd),
-	)
+	var hostnames []string
+	if druidv1alpha1.ArePodsManagedByEtcdDruid(etcd) {
+		hostnames = []string{druidv1alpha1.GetClientHostname(etcd)}
+	} else {
+		hostnames = etcd.Spec.ExternallyManagedMemberAddresses
+	}
+	port := strconv.Itoa(int(druidv1alpha1.GetClientPort(etcd)))
+	endpoints := make([]string, len(hostnames))
+	for i, hostname := range hostnames {
+		endpoints[i] = fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(hostname, port))
+	}
 
 	cli, err := clientv3.New(clientv3.Config{
 		Context:     ctx,
-		Endpoints:   []string{endpoint},
+		Endpoints:   endpoints,
 		DialTimeout: defaultDialTimeout,
 		TLS:         tlsConfig,
 	})
