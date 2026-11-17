@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-emulator
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aws-emulator
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: aws-emulator
+    spec:
+      containers:
+        - name: aws-emulator
+          image: aws-emulator:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9297
+              hostPort: 9297
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              path: /__admin/health
+              port: 9297
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aws-emulator
+  namespace: default
+spec:
+  ports:
+    - port: 9297
+      targetPort: 9297
+  selector:
+    app: aws-emulator

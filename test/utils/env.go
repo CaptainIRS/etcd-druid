@@ -36,8 +36,8 @@ func GetEnvOrDefault(key, defaultValue string) string {
 func GetEmulatorEndpoint(provider druidv1alpha1.StorageProvider) *string {
 	switch provider {
 	case store.S3, "aws":
-		if host := GetEnvOrDefault("LOCALSTACK_HOST", ""); host != "" {
-			return ptr.To("http://" + host)
+		if host := GetEnvOrDefault("AWS_EMULATOR_HOST", ""); host != "" {
+			return ptr.To("https://" + host)
 		}
 	case store.ABS, "azure":
 		if host := GetEnvOrDefault("AZURITE_DOMAIN", ""); host != "" {

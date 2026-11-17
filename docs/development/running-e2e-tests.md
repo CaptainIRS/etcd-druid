@@ -109,7 +109,7 @@ This installs etcd-druid configured for e2e tests into the cluster pointed to by
 
 The e2e test suite supports running tests with real storage providers as well as local storage emulators for AWS, Azure and GCP.
 
-While etcd-backup-restore generally expects a storage bucket from a real infrastructure provider, there are tools such as [localstack](https://docs.localstack.cloud/user-guide/aws/s3/), [azurite](https://github.com/Azure/Azurite) and [fake-gcs-server](https://github.com/fsouza/fake-gcs-server) that enable developers to run e2e tests locally with emulators for AWS S3, Azure ABS and Google GCS respectively. These emulators can be run either as standalone services or as workload in the same KinD cluster used for e2e tests.
+While etcd-backup-restore generally expects a storage bucket from a real infrastructure provider, there are tools such as [AWS Emulator](https://github.com/aws/aws-emulator), [azurite](https://github.com/Azure/Azurite) and [fake-gcs-server](https://github.com/fsouza/fake-gcs-server) that enable developers to run e2e tests locally with emulators for AWS S3, Azure ABS and Google GCS respectively. These emulators can be run either as standalone services or as workload in the same KinD cluster used for e2e tests.
 
 Port mappings for the services deployed for these emulators are defined in the [KinD cluster configuration file](../../hack/kind-up.sh), which allows developers to use the storage providers' respective CLIs to access and inspect the storage buckets created when deploying these emulators.
 
@@ -130,41 +130,34 @@ export AWS_SECRET_ACCESS_KEY=your-secret-access-key
 export AWS_REGION=your-aws-region
 ```
 
-#### Running tests against Localstack S3 emulator
+#### Running tests against AWS Emulator
 
-> [!NOTE]
-> Running the AWS e2e tests requires a `LOCALSTACK_AUTH_TOKEN` environment variable to be set.
-> The project has a [LocalStack for Open Source](https://www.localstack.cloud/localstack-open-source) license. Ask a
-> maintainer for the token, or apply for your own. Alternatively, the frozen community archive image
-> `localstack/localstack:s3-community-archive` can be used without a token, but it will not receive
-> updates or security patches.
-
-Please refer to the [Localstack S3 emulator documentation](../deployment/getting-started-locally/manage-s3-emulator.md) for detailed instructions on deploying Localstack.
+Please refer to the [AWS Emulator documentation](../deployment/getting-started-locally/manage-s3-emulator.md) for detailed instructions on deploying AWS Emulator. It serves HTTPS on port `9297` using a self-signed certificate.
 
 **Setup steps for e2e tests:**
 
-1. Deploy Localstack: `make deploy-localstack`
+1. Deploy AWS Emulator: `make deploy-aws-emulator`
 2. Create the test bucket `default.bkp`:
    ```bash
-   export AWS_ENDPOINT_URL_S3="http://localhost:4566"
+   export AWS_ENDPOINT_URL_S3="https://localhost:9297"
    export AWS_ACCESS_KEY_ID=ACCESSKEYAWSUSER
    export AWS_SECRET_ACCESS_KEY=sEcreTKey
    export AWS_DEFAULT_REGION=us-east-2
-   aws s3api create-bucket --bucket default.bkp --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2 --acl private
+   aws --no-verify-ssl s3api create-bucket --bucket default.bkp --region us-east-2 --create-bucket-configuration LocationConstraint=us-east-2 --acl private
    ```
 
-Once Localstack is deployed and the bucket is created, set the following environment variables when running `make test-e2e`:
+Once AWS Emulator is deployed and the bucket is created, set the following environment variables when running `make test-e2e`:
 
 ```sh
 export PROVIDERS="aws"
 export AWS_ACCESS_KEY_ID=ACCESSKEYAWSUSER
 export AWS_SECRET_ACCESS_KEY=sEcreTKey
 export AWS_REGION=us-east-2
-export LOCALSTACK_HOST="localstack.default:4566"
+export AWS_EMULATOR_HOST="aws-emulator.default:9297"
 ```
 
 > [!NOTE]
-> The `LOCALSTACK_HOST` must be set to the in-cluster service address `localstack.default:4566` because the etcd-backup-restore sidecar running inside the cluster needs to reach the Localstack service.
+> The `AWS_EMULATOR_HOST` must be set to the in-cluster service address `aws-emulator.default:9297` because the etcd-backup-restore sidecar running inside the cluster needs to reach AWS Emulator. The test framework configures the HTTPS endpoint and enables `s3ForcePathStyle` and `insecureSkipVerify` in the generated backup secret.
 
 ### Running tests against backup provider Azure ABS
 

@@ -89,7 +89,7 @@ An `Etcd` cluster provisioned via etcd-druid provides a capability to take regul
 | Backup Store Variant          | Setup Guide                                                |
 | ----------------------------- | ---------------------------------------------------------- |
 | Azure Object Storage Emulator | [Manage Azurite](manage-azurite-emulator.md) (Steps 00-03) |
-| S3 Object Store Emulator      | [Manage LocalStack](manage-s3-emulator.md) (Steps 00-03)   |
+| S3 Object Store Emulator      | [Manage AWS Emulator](manage-s3-emulator.md) (Steps 00-03)   |
 | GCS Object Store Emulator     | [Manage GCS Emulator](manage-gcs-emulator.md) (Steps 00-03)|
 
 ### Setting up Cloud Provider Object Store Secret

@@ -347,7 +347,7 @@ func TestGetCompactionJobArgs(t *testing.T) {
 		testMetricsScrape = "10s"
 		testPrefix        = "test-prefix"
 		testContainer     = "test-bucket"
-		testEndpoint      = "http://localhost:4566"
+		testEndpoint      = "https://localhost:9297"
 	)
 
 	s3Provider := druidv1alpha1.StorageProvider("aws")
@@ -395,7 +395,7 @@ func TestGetCompactionJobArgs(t *testing.T) {
 			},
 		},
 		{
-			name:                  "args with S3 provider and endpoint override for localstack",
+			name:                  "args with S3 provider and endpoint override for AWS Emulator",
 			etcdName:              testEtcdName,
 			namespace:             testNamespace,
 			metricsScrapeWait:     testMetricsScrape,

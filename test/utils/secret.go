@@ -63,15 +63,16 @@ func GenerateBackupSecretData(provider druidv1alpha1.StorageProvider) (map[strin
 		if err != nil {
 			return nil, err
 		}
-		localstackHost := GetEnvOrDefault("LOCALSTACK_HOST", "")
+		awsEmulatorHost := GetEnvOrDefault("AWS_EMULATOR_HOST", "")
 
 		data := map[string][]byte{
 			"accessKeyID":     []byte(awsAccessKeyID),
 			"secretAccessKey": []byte(awsSecretAccessKey),
 			"region":          []byte(awsRegion),
 		}
-		if localstackHost != "" {
+		if awsEmulatorHost != "" {
 			data["s3ForcePathStyle"] = []byte("true")
+			data["insecureSkipVerify"] = []byte("true")
 		}
 		return data, nil
 

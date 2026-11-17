@@ -209,7 +209,7 @@ docker-clean:
 
 # Rules for locale/remote environment
 # -------------------------------------------------------------------------
-kind-up kind-down ci-e2e-kind ci-e2e-kind-azure ci-e2e-kind-gcs deploy-localstack deploy-fakegcs deploy-azurite test-e2e deploy deploy-dev deploy-debug undeploy: export KUBECONFIG = $(KUBECONFIG_PATH)
+kind-up kind-down ci-e2e-kind ci-e2e-kind-azure ci-e2e-kind-gcs deploy-aws-emulator deploy-fakegcs deploy-azurite test-e2e deploy deploy-dev deploy-debug undeploy: export KUBECONFIG = $(KUBECONFIG_PATH)
 
 ifndef CLUSTER_NAME
 override CLUSTER_NAME = etcd-druid-e2e
@@ -263,9 +263,9 @@ deploy-debug: $(SKAFFOLD) $(HELM) prepare-helm-charts
 undeploy: $(SKAFFOLD) $(HELM)
 	$(SKAFFOLD) delete -m etcd-druid -n $(NAMESPACE)
 
-.PHONY: deploy-localstack
-deploy-localstack: $(KUBECTL)
-	@$(HACK_DIR)/deploy-localstack.sh
+.PHONY: deploy-aws-emulator
+deploy-aws-emulator: $(KUBECTL) $(KIND)
+	@CLUSTER_NAME=$(CLUSTER_NAME) $(HACK_DIR)/deploy-aws-emulator.sh
 
 .PHONY: deploy-azurite
 deploy-azurite: $(KUBECTL)

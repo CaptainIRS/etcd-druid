@@ -85,8 +85,8 @@ nodes:
 - role: control-plane
   image: kindest/node:v1.32.0
   extraPortMappings:
-  - containerPort: 4566
-    hostPort: 4566
+  - containerPort: 9297
+    hostPort: 9297
     protocol: TCP
   - containerPort: 10000
     hostPort: 10000
